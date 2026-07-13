@@ -502,24 +502,51 @@ body::before {
 
 @media (max-width: 640px) {
   .shell {
-    width: min(100% - 16px, 1200px);
+    width: min(100% - 14px, 1200px);
+    padding: 12px 0 12px;
   }
 
   .hero,
   .section {
-    padding: 22px 0 26px;
+    padding: 18px 0 22px;
   }
 
   .github-section {
-    margin-top: 4rem;
+    margin-top: 2.5rem;
+  }
+
+  .hero {
+    gap: 18px;
   }
 
   .hero h1 {
     max-width: 100%;
   }
 
+  .section-head {
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .section-body {
+    gap: 14px;
+  }
+
+  .link-row {
+    padding: 12px 0;
+  }
+
+  .image-placeholder-content {
+    padding: 10px 14px 14px;
+  }
+
+  .image-placeholder-content p {
+    margin-top: 6px;
+  }
+
   .project-row {
-    gap: 10px;
+    gap: 8px;
+    padding: 14px 0;
   }
 
   .footer {
