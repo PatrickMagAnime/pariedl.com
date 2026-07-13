@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Patrick's personal hub with welcome, about, projects and dashboard links." />
+    <meta name="site-marker" content="pariedl-home-2026-07-13" />
     <title>pariedl.com</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -26,11 +27,13 @@
         <aside class="dashboard-panel" id="dashboard">
           <div class="panel-header">
             <span>Dashboard</span>
-            <span class="status">Live</span>
           </div>
-          <a class="link-row" href="https://manga.pariedl.com" target="_blank" rel="noopener noreferrer">
+          <a class="link-row" href="https://manga.pariedl.com" target="_blank" rel="noopener noreferrer" data-service-url="https://manga.pariedl.com">
             <span>Manga</span>
-            <span>manga.pariedl.com</span>
+            <span class="service-status" data-status>
+              <span class="status-dot" aria-hidden="true"></span>
+              <span class="status-text">Prüfe…</span>
+            </span>
           </a>
           <!--
           <a class="link-row" href="https://pariedl.com" target="_blank" rel="noopener noreferrer">
@@ -83,6 +86,14 @@
                 <h3>schulevault</h3>
               </div>
               <p>Mitschriften 3. - 4. Klasse</p>
+            </a>
+
+            <a class="project-row" href="https://github.com/PatrickMagAnime/Schule_SEW" target="_blank" rel="noopener noreferrer">
+              <div>
+                <span class="project-meta">Repo</span>
+                <h3>Schule_SEW</h3>
+              </div>
+              <p>Software Entwicklung Java Slop</p>
             </a>
 
             <a class="project-row" href="https://patrickmaganime.github.io/cat-hub/" target="_blank" rel="noopener noreferrer">

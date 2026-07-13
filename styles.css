@@ -219,6 +219,43 @@ body::before {
 }
 
 .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #8c8c8c;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.status.is-loading .status-dot {
+  background: #8c8c8c;
+}
+
+.status.is-online .status-dot {
+  background: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.45);
+}
+
+.status.is-offline .status-dot {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+}
+
+.service-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #e7e7ea;
+  font-weight: 600;
+  justify-self: end;
+}
+
+.status {
   color: #e7e7ea;
   font-weight: 600;
 }
