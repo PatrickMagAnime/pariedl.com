@@ -50,11 +50,15 @@ async function checkServiceStatus(row) {
 
   setStatus(statusElement, 'loading', 'Prüfe…');
 
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 4000);
+
   try {
     const siteMarker = 'pariedl-home-2026-07-13';
     const serviceUrl = row.dataset.serviceUrl;
     const response = await fetch(serviceUrl, {
       cache: 'no-store',
+      signal: controller.signal,
       headers: {
         'Cache-Control': 'no-cache',
         Pragma: 'no-cache',
@@ -73,6 +77,8 @@ async function checkServiceStatus(row) {
     setStatus(statusElement, 'offline', 'Offline');
   } catch {
     setStatus(statusElement, 'offline', 'Offline');
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
