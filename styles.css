@@ -241,6 +241,11 @@ body::before {
   background: #8c8c8c;
 }
 
+.status.is-local .status-dot {
+  background: #8c8c8c;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
 .status.is-online .status-dot {
   background: #4ade80;
   box-shadow: 0 0 10px rgba(74, 222, 128, 0.45);

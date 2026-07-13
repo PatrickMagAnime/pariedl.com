@@ -2,7 +2,7 @@ const root = document.documentElement;
 const ripples = [];
 const revealElements = document.querySelectorAll('.reveal');
 const placeholderImages = document.querySelectorAll('.image-placeholder-media');
-const serviceRows = document.querySelectorAll('[data-service-url]');
+const serviceRows = document.querySelectorAll('[data-service-health]');
 
 function setStatus(statusElement, state, text) {
   const statusText = statusElement?.querySelector('.status-text');
@@ -48,15 +48,19 @@ async function checkServiceStatus(row) {
     return;
   }
 
+  if (window.location.protocol === 'file:') {
+    setStatus(statusElement, 'local', 'Lokal');
+    return;
+  }
+
   setStatus(statusElement, 'loading', 'Prüfe…');
 
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 4000);
 
   try {
-    const siteMarker = 'pariedl-home-2026-07-13';
-    const serviceUrl = row.dataset.serviceUrl;
-    const response = await fetch(serviceUrl, {
+    const serviceHealth = row.dataset.serviceHealth;
+    const response = await fetch(serviceHealth, {
       cache: 'no-store',
       signal: controller.signal,
       headers: {
@@ -66,10 +70,9 @@ async function checkServiceStatus(row) {
     });
 
     const body = await response.text();
-    const hasMarker = body.includes(siteMarker);
     const isProxyManagerDefault = /Congratulations!|Nginx Proxy Manager|host that isn\'t set up yet|Admin panel/i.test(body);
 
-    if (response.ok && hasMarker && !isProxyManagerDefault) {
+    if (response.ok && !isProxyManagerDefault) {
       setStatus(statusElement, 'online', 'Live');
       return;
     }
