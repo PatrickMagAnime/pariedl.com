@@ -91,6 +91,7 @@ function applyLanguage(language) {
   languageButton.textContent = language === "de" ? "DE" : "EN";
   languageButton.setAttribute("aria-label", language === "de" ? "Sprache wechseln" : "Switch language");
   languageButton.title = language === "de" ? "Sprache wechseln" : "Switch language";
+  menuToggle?.setAttribute("aria-label", language === "de" ? "Menü öffnen" : "Open menu");
   if (projectToggle) {
     const expanded = projectToggle.getAttribute("aria-expanded") === "true";
     projectToggle.innerHTML = expanded
@@ -170,14 +171,24 @@ projectToggle?.addEventListener("click", () => {
 menuToggle?.addEventListener("click", () => {
   const isOpen = menuToggle.getAttribute("aria-expanded") === "true";
   menuToggle.setAttribute("aria-expanded", String(!isOpen));
-  nav.classList.toggle("is-open", !isOpen);
+  menuToggle.setAttribute("aria-label", isOpen
+    ? (currentLanguage === "de" ? "Menü öffnen" : "Open menu")
+    : (currentLanguage === "de" ? "Menü schließen" : "Close menu"));
+  nav?.classList.toggle("is-open", !isOpen);
 });
 
 nav?.querySelectorAll("a").forEach((link) => {
   link.addEventListener("click", () => {
     menuToggle?.setAttribute("aria-expanded", "false");
+    menuToggle?.setAttribute("aria-label", currentLanguage === "de" ? "Menü öffnen" : "Open menu");
     nav.classList.remove("is-open");
   });
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && menuToggle?.getAttribute("aria-expanded") === "true") {
+    menuToggle.click();
+  }
 });
 
 languageButton?.addEventListener("click", () => {
