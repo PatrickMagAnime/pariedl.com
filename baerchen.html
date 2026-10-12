@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>Bärchen</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #000;
+        color: #fff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        background: #000;
+      }
+
+      main {
+        display: grid;
+        min-height: 100vh;
+        align-content: center;
+        justify-items: center;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      #word {
+        max-width: 100%;
+        white-space: nowrap;
+        border: 0;
+        padding: 0;
+        background: none;
+        color: #fff;
+        font: inherit;
+        font-size: clamp(2.5rem, 11vw, 7rem);
+        font-weight: 800;
+        line-height: 1.1;
+        cursor: pointer;
+      }
+
+      #rarity {
+        min-height: 1.5em;
+        margin: 1rem 0 0;
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: #888;
+        font: inherit;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      .standard { color: #f4f7ff !important; text-shadow: 0 0 10px rgb(220 232 255 / 18%); }
+      .green { color: #62f59a !important; text-shadow: 0 0 12px rgb(57 255 133 / 38%); }
+      .blue { color: #55baff !important; text-shadow: 0 0 14px rgb(46 156 255 / 48%); }
+      .indigo { color: #b18aff !important; text-shadow: 0 0 15px rgb(143 91 255 / 58%); }
+      .legendary { color: #ffe568 !important; text-shadow: 0 0 9px #ffd000, 0 0 24px rgb(255 208 0 / 72%), 0 0 40px rgb(255 170 0 / 32%); }
+      .mythic { color: #ff923d !important; text-shadow: 0 0 8px #ff5c00, 0 0 22px rgb(255 80 0 / 78%), 0 0 38px rgb(255 55 0 / 42%); }
+      .unique { color: #ff343f !important; text-shadow: 0 0 7px #ff1724, 0 0 18px #f00, 0 0 38px rgb(255 0 28 / 88%); }
+
+      #indexButton {
+        position: fixed;
+        top: 0.8rem;
+        left: 0.8rem;
+        z-index: 5;
+        appearance: none;
+        border: 0;
+        padding: 0;
+        background: none;
+        color: #aaa;
+        font: inherit;
+        font-size: 0.8rem;
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #indexButton.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      #foundPanel {
+        position: fixed;
+        z-index: 4;
+        top: 3rem;
+        left: 0.8rem;
+        display: flex;
+        width: min(24rem, calc(100vw - 1.6rem));
+        max-height: min(70vh, 34rem);
+        flex-direction: column;
+        border: 0;
+        padding: 0.75rem;
+        background: #000;
+      }
+
+      #foundPanel[hidden] {
+        display: none;
+      }
+
+      .index-heading h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      #foundCount {
+        margin: 0.45rem 0;
+        color: #999;
+        font-size: 0.8rem;
+      }
+
+      #foundList {
+        display: grid;
+        gap: 0;
+        overflow-y: auto;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        scrollbar-width: none;
+      }
+
+      #foundList::-webkit-scrollbar {
+        display: none;
+      }
+
+      #foundList li {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.8rem;
+        padding: 0.25rem 0;
+        font-size: 0.85rem;
+      }
+
+      .found-times {
+        flex: 0 0 2rem;
+        color: #777;
+        text-align: right;
+      }
+
+      .found-word {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        flex: 1 1 auto;
+      }
+
+      .found-chance {
+        flex: 0 0 auto;
+        color: #999;
+        font-size: 0.75rem;
+      }
+
+      .index-preview {
+        display: block;
+        min-height: 1em;
+        margin-top: 0;
+        color: #888;
+        font-size: 0.65rem;
+        font-weight: 400;
+      }
+
+      #indexPreview[hidden] {
+        display: none;
+      }
+
+      #indexMessage {
+        margin: 0.5rem 0 0;
+        color: #999;
+        font-size: 0.8rem;
+      }
+
+      #indexButton:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 3px;
+      }
+
+      #word:focus-visible,
+      #rarity:focus-visible,
+      #csvPicker:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 5px;
+      }
+
+      #csvPrompt {
+        max-width: 24rem;
+        margin: 1rem 0 0;
+        color: #999;
+        font-size: 0.9rem;
+      }
+
+      #csvPrompt[hidden] {
+        display: none;
+      }
+
+      #csvPicker {
+        display: inline-block;
+        margin-top: 0.7rem;
+        border: 1px solid #444;
+        border-radius: 999px;
+        padding: 0.55rem 0.9rem;
+        color: #ddd;
+        cursor: pointer;
+      }
+
+      #csvFile {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <button id="word" class="standard" type="button" aria-label="Neues Wort ziehen">Lädt …</button>
+      <button id="rarity" type="button" aria-live="polite" aria-label="Anzeige der Chance wechseln"></button>
+      <span id="indexPreview" class="index-preview" hidden>(index)</span>
+      <div id="csvPrompt" hidden>
+        <div id="csvStatus" role="status">Wähle die Datei woerter.csv aus, um lokal mit deiner Wortliste zu starten.</div>
+        <label id="csvPicker" for="csvFile">CSV auswählen</label>
+        <input id="csvFile" type="file" accept=".csv,text/csv" />
+      </div>
+    </main>
+    <button id="indexButton" type="button" aria-expanded="false" aria-controls="foundPanel" hidden>Index</button>
+    <section id="foundPanel" role="dialog" aria-label="Gefundene Wörter" hidden>
+      <p id="foundCount"></p>
+      <ul id="foundList"></ul>
+      <p id="indexMessage" role="status"></p>
+    </section>
+    <script>
+      const wordElement = document.querySelector("#word");
+      const rarityElement = document.querySelector("#rarity");
+      const indexPreview = document.querySelector("#indexPreview");
+      const main = document.querySelector("main");
+      const csvPrompt = document.querySelector("#csvPrompt");
+      const csvStatus = document.querySelector("#csvStatus");
+      const csvFile = document.querySelector("#csvFile");
+      const indexButton = document.querySelector("#indexButton");
+      const foundPanel = document.querySelector("#foundPanel");
+      const foundCount = document.querySelector("#foundCount");
+      const foundList = document.querySelector("#foundList");
+      const indexMessage = document.querySelector("#indexMessage");
+      let words = [];
+      let wordDistribution = [];
+      let totalWordWeight = 0;
+      let foundWords = new Map();
+      let lastChance = 0;
+      const csvStorageKey = "baerchen-csv-text";
+      const foundStorageKey = "baerchen-found-file";
+      const foundCookieName = "baerchen-found";
+      let showOdds = false;
+      try {
+        showOdds = localStorage.getItem("baerchen-chance-format") === "odds";
+      } catch {
+        showOdds = false;
+      }
+
+      function rememberCSV(text) {
+        try {
+          localStorage.setItem(csvStorageKey, text);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function loadCSV(text) {
+        words = parseCSV(text);
+        if (words.length === 0) {
+          wordElement.textContent = "Keine Wörter";
+          wordElement.disabled = true;
+          csvPrompt.hidden = false;
+          csvStatus.textContent = "Die CSV enthält keine Wörter. Prüfe die Datei und wähle sie erneut aus.";
+          return false;
+        }
+        wordDistribution = createWordDistribution(words);
+        totalWordWeight = wordDistribution.reduce((total, entry) => total + entry.weight, 0);
+        const validWords = new Set(words.map((word) => word.toLocaleLowerCase("de")));
+        foundWords = new Map([...readFoundCookie()].filter(([word, count]) =>
+          count > 0 && validWords.has(word),
+        ));
+        wordElement.disabled = false;
+        csvPrompt.hidden = true;
+        renderFoundIndex();
+        drawWord();
+        return true;
+      }
+
+      function createWordDistribution(wordList) {
+        const orderedWords = [...wordList].sort((left, right) =>
+          [...left].length - [...right].length ||
+          left.localeCompare(right, "de", { sensitivity: "base" }),
+        );
+        if (orderedWords.length <= 1) {
+          return orderedWords.map((word) => ({ word, weight: 1 }));
+        }
+
+        const targetDenominator = 1e7;
+        function geometricSum(ratio) {
+          let term = 1;
+          let sum = 1;
+          for (let rank = 1; rank < orderedWords.length; rank += 1) {
+            term *= ratio;
+            sum += term;
+            if (sum >= targetDenominator) return sum;
+          }
+          return sum;
+        }
+
+        let lower = 1;
+        let upper = 2;
+        while (geometricSum(upper) < targetDenominator) upper *= 2;
+        for (let iteration = 0; iteration < 100; iteration += 1) {
+          const middle = (lower + upper) / 2;
+          if (geometricSum(middle) < targetDenominator) lower = middle;
+          else upper = middle;
+        }
+
+        const ratio = (lower + upper) / 2;
+        return orderedWords.map((word, rank) => ({ word, weight: ratio ** -rank }));
+      }
+
+      function readFoundCookie() {
+        const prefix = `${foundCookieName}=`;
+        let encoded = "";
+        try {
+          const cookie = document.cookie.split("; ").find((entry) => entry.startsWith(prefix));
+          encoded = cookie ? cookie.slice(prefix.length) : "";
+          if (!encoded && location.protocol === "file:") {
+            encoded = localStorage.getItem(foundStorageKey) || "";
+          }
+        } catch (error) {
+          indexMessage.textContent = `Der gespeicherte Wortfortschritt konnte nicht gelesen werden: ${error.message}`;
+          return [];
+        }
+        if (!encoded) return [];
+        try {
+          const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+          const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+          const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+          const savedProgress = JSON.parse(new TextDecoder().decode(bytes));
+          let entries;
+          if (Array.isArray(savedProgress)) {
+            entries = savedProgress.map((word) => [word, 1]);
+          } else if (savedProgress && typeof savedProgress === "object") {
+            entries = Object.entries(savedProgress);
+          } else {
+            throw new Error("Ungültige Cookie-Daten");
+          }
+          if (entries.some(([word, count]) =>
+            typeof word !== "string" || !Number.isSafeInteger(count) || count < 0,
+          )) {
+            throw new Error("Ungültige Cookie-Daten");
+          }
+          return new Map(entries.filter(([, count]) => count > 0));
+        } catch (error) {
+          indexMessage.textContent = `Der gespeicherte Wortfortschritt konnte nicht gelesen werden: ${error.message}`;
+          return [];
+        }
+      }
+
+      function saveFoundCookie() {
+        const bytes = new TextEncoder().encode(JSON.stringify(Object.fromEntries(foundWords)));
+        let binary = "";
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        const encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        if (encoded.length > 3800) {
+          indexMessage.textContent = "Der Fortschritt ist zu groß für ein Browser-Cookie und konnte nicht gespeichert werden.";
+          return false;
+        }
+
+        const path = location.protocol === "file:" ? "" : "; path=/";
+        try {
+          document.cookie = `${foundCookieName}=${encoded}; max-age=315360000; SameSite=Lax${path}`;
+        } catch {
+          // Local files and strict browser settings may block cookies.
+        }
+        let savedCookie;
+        try {
+          savedCookie = document.cookie.split("; ").find((entry) =>
+            entry.startsWith(`${foundCookieName}=`),
+          );
+        } catch {
+          savedCookie = undefined;
+        }
+        if (!savedCookie || savedCookie.slice(foundCookieName.length + 1) !== encoded) {
+          if (location.protocol === "file:") {
+            try {
+              localStorage.setItem(foundStorageKey, encoded);
+              if (localStorage.getItem(foundStorageKey) === encoded) {
+                indexMessage.textContent = "";
+                return true;
+              }
+            } catch {
+              // The browser may block local storage for local files too.
+            }
+          }
+          indexMessage.textContent = "Der Browser hat das Fortschritts-Cookie blockiert. Bitte erlaube Cookies für diese Seite.";
+          return false;
+        }
+        indexMessage.textContent = "";
+        return true;
+      }
+
+      function renderFoundIndex() {
+        const foundCountValue = [...foundWords.values()].filter((count) => count > 0).length;
+        foundCount.textContent = `${foundCountValue} / ${words.length} Wörter gefunden`;
+        indexButton.textContent = `Index ${foundCountValue}/${words.length}`;
+
+        const found = wordDistribution
+          .filter((entry) => (foundWords.get(entry.word.toLocaleLowerCase("de")) ?? 0) > 0)
+          .map((entry) => ({ ...entry, chance: (entry.weight / totalWordWeight) * 100 }))
+          .sort((left, right) =>
+            left.chance - right.chance ||
+            left.word.localeCompare(right.word, "de", { sensitivity: "base" }),
+          );
+
+        foundList.replaceChildren(...found.map(({ word, chance }) => {
+          const item = document.createElement("li");
+          const timesLabel = document.createElement("span");
+          const label = document.createElement("span");
+          const chanceLabel = document.createElement("span");
+          timesLabel.className = "found-times";
+          timesLabel.textContent = `×${foundWords.get(word.toLocaleLowerCase("de")) ?? 0}`;
+          label.className = `found-word ${rarityClass(word)}`;
+          label.textContent = word;
+          label.tabIndex = 0;
+          label.setAttribute("role", "button");
+          label.setAttribute("aria-label", `${word} anzeigen`);
+          chanceLabel.className = "found-chance";
+          chanceLabel.textContent = showOdds
+            ? `1 : ${formatOdds(word)}`
+            : `${new Intl.NumberFormat("de-DE", {
+              maximumSignificantDigits: 8,
+            }).format(chance)} %`;
+          item.append(timesLabel, label, chanceLabel);
+          const previewWord = () => showIndexedWord(word, chance);
+          label.addEventListener("click", previewWord);
+          label.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              previewWord();
+            }
+          });
+          return item;
+        }));
+
+        if (found.length === 0 && !indexMessage.textContent) {
+          indexMessage.textContent = "Noch keine Wörter gefunden.";
+        } else if (found.length > 0 && indexMessage.textContent === "Noch keine Wörter gefunden.") {
+          indexMessage.textContent = "";
+        }
+      }
+
+      function parseCSV(text) {
+        const cells = [];
+        let cell = "";
+        let quoted = false;
+
+        for (let index = 0; index < text.length; index += 1) {
+          const character = text[index];
+          if (character === '"') {
+            if (quoted && text[index + 1] === '"') {
+              cell += '"';
+              index += 1;
+            } else {
+              quoted = !quoted;
+            }
+          } else if (!quoted && (character === "," || character === "\n" || character === "\r")) {
+            if (cell.trim()) cells.push(cell.trim());
+            cell = "";
+            if (character === "\r" && text[index + 1] === "\n") index += 1;
+          } else {
+            cell += character;
+          }
+        }
+        if (cell.trim()) cells.push(cell.trim());
+
+        const uniqueWords = new Map();
+        for (const value of cells) {
+          const word = value.trim();
+          if (!word || /^(wort|word)$/i.test(word)) continue;
+          const key = word.toLocaleLowerCase("de");
+          if (!uniqueWords.has(key)) uniqueWords.set(key, word);
+        }
+        return [...uniqueWords.values()];
+      }
+
+      function rarityClass(word) {
+        const entry = wordDistribution.find((weightedWord) => weightedWord.word === word);
+        if (!entry) return "standard";
+        const odds = totalWordWeight / entry.weight;
+        const rarestOdds = totalWordWeight / wordDistribution.at(-1).weight;
+        if (odds >= rarestOdds) return wordDistribution.length === 1 ? "standard" : "unique";
+        const mostCommonOdds = totalWordWeight / wordDistribution[0].weight;
+        if (rarestOdds <= mostCommonOdds) return "standard";
+        const rarityTiers = ["standard", "green", "blue", "indigo", "legendary", "mythic"];
+        const rarityProgress = Math.log10(odds / mostCommonOdds) / Math.log10(rarestOdds / mostCommonOdds);
+        const tier = Math.floor(rarityProgress * rarityTiers.length);
+        return rarityTiers[Math.min(tier, rarityTiers.length - 1)];
+      }
+
+      function drawWord() {
+        if (wordDistribution.length === 0) return;
+
+        let roll = Math.random() * totalWordWeight;
+        let selected = wordDistribution[wordDistribution.length - 1];
+
+        for (const entry of wordDistribution) {
+          roll -= entry.weight;
+          if (roll < 0) {
+            selected = entry;
+            break;
+          }
+        }
+
+        lastChance = (selected.weight / totalWordWeight) * 100;
+        showWord(selected.word, lastChance, false);
+        const wordKey = selected.word.toLocaleLowerCase("de");
+        foundWords.set(wordKey, (foundWords.get(wordKey) ?? 0) + 1);
+        saveFoundCookie();
+        renderFoundIndex();
+      }
+
+      function showWord(word, chance, fromIndex) {
+        lastChance = chance;
+        wordElement.textContent = word;
+        indexPreview.hidden = !fromIndex;
+        wordElement.className = rarityClass(word);
+        showChance();
+        fitWordToViewport();
+      }
+
+      function showIndexedWord(word, chance) {
+        showWord(word, chance, true);
+        foundPanel.hidden = true;
+        indexButton.setAttribute("aria-expanded", "false");
+      }
+
+      function showChance() {
+        if (showOdds) {
+          const displayedWord = wordElement.firstChild?.textContent ?? wordElement.textContent;
+          rarityElement.textContent = `1 : ${formatOdds(displayedWord)}`;
+        } else {
+          rarityElement.textContent = `${new Intl.NumberFormat("de-DE", {
+            maximumSignificantDigits: 8,
+          }).format(lastChance)} %`;
+        }
+      }
+
+      function formatOdds(word) {
+        const entry = wordDistribution.find((weightedWord) => weightedWord.word === word);
+        if (!entry) return "1";
+        const odds = Math.round(totalWordWeight / entry.weight);
+        return new Intl.NumberFormat("de-DE", {
+          maximumSignificantDigits: 21,
+        }).format(odds);
+      }
+
+      function fitWordToViewport() {
+        if (!wordElement.textContent) return;
+
+        const baseSize = Math.min(112, window.innerWidth * 0.11);
+        const styles = getComputedStyle(wordElement);
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        if (!context) return;
+
+        context.font = `800 ${baseSize}px ${styles.fontFamily}`;
+        const wordText = wordElement.firstChild?.textContent ?? wordElement.textContent;
+        const textWidth = context.measureText(wordText).width;
+        const padding = Number.parseFloat(getComputedStyle(main).paddingLeft) * 2;
+        const availableWidth = main.clientWidth - padding;
+        const fittedSize = Math.min(baseSize, baseSize * availableWidth / textWidth);
+        wordElement.style.fontSize = `${fittedSize}px`;
+      }
+
+      wordElement.addEventListener("click", drawWord);
+      rarityElement.addEventListener("click", () => {
+        showOdds = !showOdds;
+        try {
+          localStorage.setItem("baerchen-chance-format", showOdds ? "odds" : "percent");
+        } catch {
+          csvStatus.textContent = "Die Anzeige Einstellung konnte in diesem Browser nicht gespeichert werden :( ";
+        }
+        showChance();
+        renderFoundIndex();
+      });
+      csvFile.addEventListener("change", async () => {
+        const file = csvFile.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          if (!loadCSV(text)) return;
+          if (!rememberCSV(text)) {
+            csvPrompt.hidden = false;
+            csvStatus.textContent = "Wörter geladen. Der Browser kann die CSV für den nächsten Start leider nicht speichern :( ";
+          }
+        } catch (error) {
+          csvPrompt.hidden = false;
+          csvStatus.textContent = `Die CSV konnte nicht gelesen werden grrrrrr: ${error.message}`;
+        }
+      });
+      indexButton.addEventListener("click", () => {
+        const isOpen = foundPanel.hidden;
+        foundPanel.hidden = !isOpen;
+        indexButton.setAttribute("aria-expanded", String(isOpen));
+      });
+      function closeIndex() {
+        foundPanel.hidden = true;
+        indexButton.setAttribute("aria-expanded", "false");
+      }
+      document.addEventListener("click", (event) => {
+        if (!foundPanel.hidden && !foundPanel.contains(event.target) && event.target !== indexButton) {
+          closeIndex();
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !foundPanel.hidden) {
+          closeIndex();
+        }
+      });
+      let previousScrollY = window.scrollY;
+      function updateIndexVisibility(scrollingDown) {
+        if (scrollingDown) {
+          indexButton.hidden = false;
+          indexButton.classList.add("is-visible");
+        } else {
+          indexButton.classList.remove("is-visible");
+          indexButton.hidden = true;
+        }
+      }
+      let touchStartY = null;
+      document.addEventListener("touchstart", (event) => {
+        touchStartY = event.touches[0]?.clientY ?? null;
+      }, { passive: true });
+      document.addEventListener("touchmove", (event) => {
+        const currentY = event.touches[0]?.clientY;
+        if (touchStartY !== null && currentY !== undefined && Math.abs(touchStartY - currentY) > 12) {
+          updateIndexVisibility(touchStartY > currentY);
+        }
+      }, { passive: true });
+      document.addEventListener("touchend", () => {
+        touchStartY = null;
+      }, { passive: true });
+      window.addEventListener("wheel", (event) => {
+        if (event.deltaY === 0) return;
+        updateIndexVisibility(event.deltaY > 0);
+      }, { passive: true });
+      window.addEventListener("scroll", () => {
+        const currentScrollY = window.scrollY;
+        if (currentScrollY !== previousScrollY) {
+          updateIndexVisibility(currentScrollY > previousScrollY);
+          previousScrollY = currentScrollY;
+        }
+      }, { passive: true });
+      window.addEventListener("resize", fitWordToViewport);
+
+      fetch("woerter.csv")
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.text();
+        })
+        .then((text) => {
+          loadCSV(text);
+        })
+        .catch(() => {
+          let savedCSV = null;
+          try {
+            savedCSV = localStorage.getItem(csvStorageKey);
+          } catch {
+            savedCSV = null;
+          }
+          if (savedCSV && loadCSV(savedCSV)) return;
+          wordElement.textContent = "CSV fehlt";
+          wordElement.disabled = true;
+          csvPrompt.hidden = false;
+        });
+    </script>
+  </body>
+</html>

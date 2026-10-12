@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>Bärchen – Wörter</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #000;
+        color: #fff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        width: min(100% - 2rem, 650px);
+        margin: 0 auto;
+        padding: 2rem 0;
+        background: #000;
+      }
+
+      a {
+        color: #aaa;
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: #fff;
+      }
+
+      h1 {
+        margin: 2rem 0 1rem;
+        font-size: 1.5rem;
+      }
+
+      input {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 0.7rem 0.85rem;
+        background: #111;
+        color: #fff;
+        font: inherit;
+      }
+
+      input:focus-visible,
+      a:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 3px;
+      }
+
+      ul {
+        display: grid;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      li {
+        border-bottom: 1px solid #222;
+        padding: 0.65rem 0;
+        overflow-wrap: anywhere;
+      }
+
+      .standard { color: #f4f7ff; text-shadow: 0 0 10px rgb(220 232 255 / 18%); }
+      .green { color: #62f59a; text-shadow: 0 0 12px rgb(57 255 133 / 38%); }
+      .blue { color: #55baff; text-shadow: 0 0 14px rgb(46 156 255 / 48%); }
+      .indigo { color: #b18aff; text-shadow: 0 0 15px rgb(143 91 255 / 58%); }
+      .legendary { color: #ffe568; text-shadow: 0 0 9px #ffd000, 0 0 24px rgb(255 208 0 / 72%), 0 0 40px rgb(255 170 0 / 32%); }
+      .mythic { color: #ff923d; text-shadow: 0 0 8px #ff5c00, 0 0 22px rgb(255 80 0 / 78%), 0 0 38px rgb(255 55 0 / 42%); }
+      .unique { color: #ff343f; text-shadow: 0 0 7px #ff1724, 0 0 18px #f00, 0 0 38px rgb(255 0 28 / 88%); }
+
+      #message {
+        color: #999;
+      }
+
+      #csvPicker {
+        display: inline-block;
+        margin-top: 0.5rem;
+        border: 1px solid #444;
+        border-radius: 999px;
+        padding: 0.55rem 0.9rem;
+        color: #ddd;
+        cursor: pointer;
+      }
+
+      #csvPicker[hidden] {
+        display: none;
+      }
+
+      #csvFile {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+
+      #csvPicker:focus-within {
+        outline: 2px solid #fff;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="baerchen.html">← Zurück</a>
+    <main>
+      <h1>Wörter</h1>
+      <label>
+        <span hidden>Wort suchen</span>
+        <input id="search" type="search" placeholder="Wort suchen …" autocomplete="off" />
+      </label>
+      <ul id="wordList"></ul>
+      <p id="message" aria-live="polite"></p>
+      <label id="csvPicker" for="csvFile" hidden>
+        CSV auswählen
+        <input id="csvFile" type="file" accept=".csv,text/csv" />
+      </label>
+    </main>
+
+    <script>
+      const searchInput = document.querySelector("#search");
+      const wordList = document.querySelector("#wordList");
+      const message = document.querySelector("#message");
+      const csvPicker = document.querySelector("#csvPicker");
+      const csvFile = document.querySelector("#csvFile");
+      const csvStorageKey = "baerchen-csv-text";
+      let words = [];
+      let wordDistribution = [];
+      let totalWordWeight = 0;
+
+      function loadCSV(text) {
+        words = parseCSV(text);
+        wordDistribution = createWordDistribution(words);
+        totalWordWeight = wordDistribution.reduce((total, entry) => total + entry.weight, 0);
+        renderWords();
+        if (words.length === 0) {
+          message.textContent = "Die CSV enthält keine Wörter.";
+          return false;
+        }
+        csvPicker.hidden = true;
+        return true;
+      }
+
+      function parseCSV(text) {
+        const cells = [];
+        let cell = "";
+        let quoted = false;
+
+        for (let index = 0; index < text.length; index += 1) {
+          const character = text[index];
+          if (character === '"') {
+            if (quoted && text[index + 1] === '"') {
+              cell += '"';
+              index += 1;
+            } else {
+              quoted = !quoted;
+            }
+          } else if (!quoted && (character === "," || character === "\n" || character === "\r")) {
+            if (cell.trim()) cells.push(cell.trim());
+            cell = "";
+            if (character === "\r" && text[index + 1] === "\n") index += 1;
+          } else {
+            cell += character;
+          }
+        }
+        if (cell.trim()) cells.push(cell.trim());
+
+        const uniqueWords = new Map();
+        for (const value of cells) {
+          const word = value.trim();
+          if (!word || /^(wort|word)$/i.test(word)) continue;
+          const key = word.toLocaleLowerCase("de");
+          if (!uniqueWords.has(key)) uniqueWords.set(key, word);
+        }
+        return [...uniqueWords.values()];
+      }
+
+      function createWordDistribution(wordList) {
+        const orderedWords = [...wordList].sort((left, right) =>
+          [...left].length - [...right].length ||
+          left.localeCompare(right, "de", { sensitivity: "base" }),
+        );
+        if (orderedWords.length <= 1) {
+          return orderedWords.map((word) => ({ word, weight: 1 }));
+        }
+
+        const targetDenominator = 1e7;
+        function geometricSum(ratio) {
+          let term = 1;
+          let sum = 1;
+          for (let rank = 1; rank < orderedWords.length; rank += 1) {
+            term *= ratio;
+            sum += term;
+            if (sum >= targetDenominator) return sum;
+          }
+          return sum;
+        }
+
+        let lower = 1;
+        let upper = 2;
+        while (geometricSum(upper) < targetDenominator) upper *= 2;
+        for (let iteration = 0; iteration < 100; iteration += 1) {
+          const middle = (lower + upper) / 2;
+          if (geometricSum(middle) < targetDenominator) lower = middle;
+          else upper = middle;
+        }
+
+        const ratio = (lower + upper) / 2;
+        return orderedWords.map((word, rank) => ({ word, weight: ratio ** -rank }));
+      }
+
+      function rarityClass(word) {
+        const entry = wordDistribution.find((weightedWord) => weightedWord.word === word);
+        if (!entry) return "standard";
+        const odds = totalWordWeight / entry.weight;
+        const rarestOdds = totalWordWeight / wordDistribution.at(-1).weight;
+        if (odds >= rarestOdds) return wordDistribution.length === 1 ? "standard" : "unique";
+        const mostCommonOdds = totalWordWeight / wordDistribution[0].weight;
+        if (rarestOdds <= mostCommonOdds) return "standard";
+        const rarityTiers = ["standard", "green", "blue", "indigo", "legendary", "mythic"];
+        const rarityProgress = Math.log10(odds / mostCommonOdds) / Math.log10(rarestOdds / mostCommonOdds);
+        const tier = Math.floor(rarityProgress * rarityTiers.length);
+        return rarityTiers[Math.min(tier, rarityTiers.length - 1)];
+      }
+
+      function formatOdds(word) {
+        const entry = wordDistribution.find((weightedWord) => weightedWord.word === word);
+        if (!entry) return "1";
+        return new Intl.NumberFormat("de-DE", {
+          maximumSignificantDigits: 21,
+        }).format(Math.round(totalWordWeight / entry.weight));
+      }
+
+      function renderWords() {
+        const query = searchInput.value.trim().toLocaleLowerCase("de");
+        const matches = [...words]
+          .sort((left, right) => left.localeCompare(right, "de", { sensitivity: "base" }))
+          .filter((word) => word.toLocaleLowerCase("de").includes(query));
+
+        wordList.replaceChildren(...matches.map((word) => {
+          const item = document.createElement("li");
+          item.textContent = word;
+          const entry = wordDistribution.find((weightedWord) => weightedWord.word === word);
+          const chance = (entry.weight / totalWordWeight) * 100;
+          item.className = rarityClass(word);
+          item.title = `Chance: ${new Intl.NumberFormat("de-DE", {
+            maximumSignificantDigits: 8,
+          }).format(chance)} % (1 : ${formatOdds(word)})`;
+          return item;
+        }));
+        message.textContent = matches.length === 0 ? "Keine Wörter gefunden." : "";
+      }
+
+      searchInput.addEventListener("input", renderWords);
+      csvFile.addEventListener("change", async () => {
+        const file = csvFile.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          if (!loadCSV(text)) return;
+          try {
+            localStorage.setItem(csvStorageKey, text);
+          } catch {
+            message.textContent = "Wörter geladen. Der Browser kann die CSV für den nächsten Start leider nicht speichern.";
+          }
+        } catch (error) {
+          message.textContent = `Die CSV konnte nicht gelesen werden: ${error.message}`;
+        }
+      });
+
+      fetch("woerter.csv")
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.text();
+        })
+        .then((text) => {
+          loadCSV(text);
+        })
+        .catch(() => {
+          let savedCSV = null;
+          try {
+            savedCSV = localStorage.getItem(csvStorageKey);
+          } catch {
+            savedCSV = null;
+          }
+          if (savedCSV && loadCSV(savedCSV)) return;
+          message.textContent = "CSV lokal nicht automatisch lesbar. Wähle die Datei woerter.csv aus.";
+          csvPicker.hidden = false;
+        });
+    </script>
+  </body>
+</html>
