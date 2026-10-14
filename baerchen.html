@@ -597,6 +597,9 @@
       }
 
       wordElement.addEventListener("click", drawWord);
+      main.addEventListener("click", (event) => {
+        if (event.target === main) drawWord();
+      });
       rarityElement.addEventListener("click", () => {
         showOdds = !showOdds;
         try {
