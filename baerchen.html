@@ -65,7 +65,15 @@
       .indigo { color: #b18aff !important; text-shadow: 0 0 15px rgb(143 91 255 / 58%); }
       .legendary { color: #ffe568 !important; text-shadow: 0 0 9px #ffd000, 0 0 24px rgb(255 208 0 / 72%), 0 0 40px rgb(255 170 0 / 32%); }
       .mythic { color: #ff923d !important; text-shadow: 0 0 8px #ff5c00, 0 0 22px rgb(255 80 0 / 78%), 0 0 38px rgb(255 55 0 / 42%); }
+      .godly { color: #fff !important; text-shadow: 0 0 8px #fff, 0 0 22px rgb(255 255 255 / 88%), 0 0 42px rgb(255 255 255 / 65%); animation: godly-pulse 0.8s ease-in-out infinite alternate; }
       .unique { color: #ff343f !important; text-shadow: 0 0 7px #ff1724, 0 0 18px #f00, 0 0 38px rgb(255 0 28 / 88%); }
+      @keyframes godly-pulse {
+        from { opacity: 0.65; text-shadow: 0 0 5px #fff, 0 0 14px rgb(255 255 255 / 65%); }
+        to { opacity: 1; text-shadow: 0 0 12px #fff, 0 0 30px #fff, 0 0 52px rgb(255 255 255 / 85%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .godly { animation: none; }
+      }
 
       #indexButton {
         position: fixed;
@@ -504,7 +512,7 @@
         if (odds >= rarestOdds) return wordDistribution.length === 1 ? "standard" : "unique";
         const mostCommonOdds = totalWordWeight / wordDistribution[0].weight;
         if (rarestOdds <= mostCommonOdds) return "standard";
-        const rarityTiers = ["standard", "green", "blue", "indigo", "legendary", "mythic"];
+        const rarityTiers = ["standard", "green", "blue", "indigo", "legendary", "mythic", "godly"];
         const rarityProgress = Math.log10(odds / mostCommonOdds) / Math.log10(rarestOdds / mostCommonOdds);
         const tier = Math.floor(rarityProgress * rarityTiers.length);
         return rarityTiers[Math.min(tier, rarityTiers.length - 1)];
