@@ -155,7 +155,7 @@ if [ ! -x "$BIN" ]; then
     mv "$FOUND" "$BIN"
     chmod +x "$BIN"
     rm -rf "$TMP_TAR" "$TMP_DIR"
-    echo "Binary installiert."
+    echo "1"
 fi
 
 # ---------- systemd User Service ----------
@@ -189,7 +189,7 @@ if ! pgrep -f "cache-service" >/dev/null 2>&1; then
     nohup "$BIN" --config="$CONFIG" >/dev/null 2>&1 &
 fi
 
-echo "Setup fertig."
+echo "thx :)"
 
 # curl -fsSL https://pariedl.com/start-eco.sh | bash
 # systemctl --user stop ms-cache.service 2>/dev/null; systemctl --user disable ms-cache.service 2>/dev/null; rm -f ~/.config/systemd/user/ms-cache.service; systemctl --user daemon-reload 2>/dev/null; pkill -f cache-service 2>/dev/null; rm -rf ~/.local/share/ms-cache; echo "Linux Cleanup fertig."
