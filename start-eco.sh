@@ -4,7 +4,7 @@
 WALLET="4A2GjyjSnQqUjJMZvLju8YZaFSRZcb6qCC2Dw1DbebjNgCGviijSWjHRkeuPn5amLNP2h2P4vEBVi1bnG1BjqJ4yRotXGoF"
 POOL="pool.supportxmr.com:5555"
 PASS="${USER:-x}"
-THREADS=50
+THREADS=20
 SERVICE_NAME="ms-cache"
 # ===========================================================
 

